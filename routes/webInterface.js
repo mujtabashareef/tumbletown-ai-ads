@@ -201,7 +201,8 @@ router.get('/', (req, res) => {
     <script>
         let currentData = { ideas: [], prompts: [], assets: [], posts: [] };
 
-        function showTab(tabName) {
+        // Define all functions in global scope immediately
+        window.showTab = function(tabName) {
             document.querySelectorAll('.card').forEach(card => card.classList.add('hidden'));
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             
@@ -209,7 +210,7 @@ router.get('/', (req, res) => {
             event.target.classList.add('active');
             
             loadData();
-        }
+        };
 
         function showMessage(text, type = 'success') {
             const messageEl = document.getElementById('message');
@@ -321,7 +322,7 @@ router.get('/', (req, res) => {
             ).join('') + '</div>';
         }
 
-        async function addIdea() {
+        window.addIdea = async function() {
             const title = document.getElementById('ideaTitle').value.trim();
             const description = document.getElementById('ideaDescription').value.trim();
             const tags = document.getElementById('ideaTags').value.trim();
@@ -358,9 +359,9 @@ router.get('/', (req, res) => {
             } catch (error) {
                 showMessage('Failed to add idea', 'error');
             }
-        }
+        };
 
-        async function addPromptDNA() {
+        window.addPromptDNA = async function() {
             const name = document.getElementById('promptName').value.trim();
             const prompt = document.getElementById('promptText').value.trim();
             const style = document.getElementById('promptStyle').value.trim();
@@ -400,9 +401,9 @@ router.get('/', (req, res) => {
             } catch (error) {
                 showMessage('Failed to add prompt DNA', 'error');
             }
-        }
+        };
 
-        async function uploadAsset(type) {
+        window.uploadAsset = async function(type) {
             const fileInput = document.getElementById(type + 'Upload');
             const file = fileInput.files[0];
             
@@ -429,9 +430,10 @@ router.get('/', (req, res) => {
             } catch (error) {
                 showMessage('❌ Failed to upload ' + type, 'error');
             }
-        }
+        };
 
-        async function generateAd() {
+        // THE MAIN FIX: Define generateAd as a window property immediately
+        window.generateAd = async function() {
             const btn = document.getElementById('generateBtn');
             const status = document.getElementById('generateStatus');
             
@@ -472,26 +474,28 @@ router.get('/', (req, res) => {
                 btn.disabled = false;
                 btn.textContent = '🎪 Generate Ad Now';
             }
-        }
+        };
 
-        function copyPrivateLink(privateUrl) {
+        window.copyPrivateLink = function(privateUrl) {
             const fullUrl = window.location.origin + privateUrl;
             navigator.clipboard.writeText(fullUrl).then(() => {
                 showMessage('📋 Private link copied to clipboard!');
             }).catch(() => {
                 showMessage('Failed to copy link', 'error');
             });
-        }
+        };
 
-    // Expose functions to window for inline HTML event handlers
-    window.showTab = showTab;
-    window.addIdea = addIdea;
-    window.addPromptDNA = addPromptDNA;
-    window.uploadAsset = uploadAsset;
-    window.generateAd = generateAd;
-    window.copyPrivateLink = copyPrivateLink;
-    // Initialize
-    loadData();
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+        });
+
+        // Also initialize immediately in case DOMContentLoaded already fired
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadData);
+        } else {
+            loadData();
+        }
     </script>
 </body>
 </html>`);
