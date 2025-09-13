@@ -483,8 +483,15 @@ router.get('/', (req, res) => {
             });
         }
 
-        // Initialize
-        loadData();
+    // Expose functions to window for inline HTML event handlers
+    window.showTab = showTab;
+    window.addIdea = addIdea;
+    window.addPromptDNA = addPromptDNA;
+    window.uploadAsset = uploadAsset;
+    window.generateAd = generateAd;
+    window.copyPrivateLink = copyPrivateLink;
+    // Initialize
+    loadData();
     </script>
 </body>
 </html>`);
