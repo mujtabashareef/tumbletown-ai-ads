@@ -3,7 +3,7 @@ const axios = require('axios');
 const sharp = require('sharp');
 const fs = require('fs').promises;
 const { pool } = require('../../config/database');
-const { generateAccessToken, createPrivateUrl } = require('../utils/helpers');
+const { generateAccessToken, createPrivateUrl } = require('../../utils/helpers');
 
 // Simple prompt creation
 function createPrompt(idea, promptDNA) {
