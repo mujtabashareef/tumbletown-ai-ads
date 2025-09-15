@@ -36,31 +36,86 @@ function createPrompt(idea, promptDNA) {
 async function generateWithPollinations(prompt) {
   try {
     const encodedPrompt = encodeURIComponent(prompt);
+    const baseUrl = 'https://image.pollinations.ai';
     
-    let imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&enhance=true&model=flux-realism&nologo=true`;
+    // First, try SDXL model
+    let imageUrl = `${baseUrl}/prompt/${encodedPrompt}`;
+    const params = new URLSearchParams({
+      width: '1024',
+      height: '1024',
+      seed: Math.floor(Math.random() * 1000000),
+      model: 'sdxl',
+      negative_prompt: 'blurry, low quality, cartoon, illustration, animated, duplicate, error, deformed, bad lighting',
+      guidance_scale: '7.5',
+      steps: '30',
+      nologo: 'true'
+    });
     
-    try {
-      const response = await axios.head(imageUrl, { timeout: 10000 });
-      if (response.status === 200) {
+    imageUrl = `${imageUrl}?${params.toString()}`;
+    console.log('Attempting to generate image with primary URL:', imageUrl);
+
+    // Function to verify image exists and has content
+    async function verifyImage(url, attempt = 1) {
+      console.log(`Verifying image (attempt ${attempt})...`);
+      
+      try {
+        const response = await axios.get(url, {
+          responseType: 'arraybuffer',
+          timeout: 30000,
+          headers: {
+            'User-Agent': 'TumbleTown-Ad-Generator/1.0',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          },
+          validateStatus: status => status === 200
+        });
+
+        if (response.data && response.data.length > 0) {
+          console.log(`Image verified successfully (${response.data.length} bytes)`);
+          return true;
+        }
+        console.log('Image response empty');
+        return false;
+      } catch (error) {
+        console.log(`Verification failed:`, error.message);
+        return false;
+      }
+    }
+
+    // Try up to 3 times with primary URL
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      if (await verifyImage(imageUrl, attempt)) {
+        console.log('Primary image generation successful');
         return {
           imageUrl,
-          service: 'Pollinations AI (Enhanced)',
+          service: 'Pollinations AI (SDXL)',
           cost: 0,
           prompt
         };
       }
-    } catch (enhancedError) {
-      console.log('Enhanced version failed, trying basic...');
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between attempts
     }
-    
-    imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024`;
-    
-    return {
-      imageUrl,
-      service: 'Pollinations AI',
-      cost: 0,
-      prompt
-    };
+
+    // If SDXL failed, try fallback version
+    console.log('SDXL failed, trying fallback version...');
+    imageUrl = `${baseUrl}/prompt/${encodedPrompt}?width=1024&height=1024&model=sd-1.5&nologo=true`;
+    console.log('Using fallback URL:', imageUrl);
+
+    // Try up to 3 times with fallback URL
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      if (await verifyImage(imageUrl, attempt)) {
+        console.log('Fallback image generation successful');
+        return {
+          imageUrl,
+          service: 'Pollinations AI (SD 1.5)',
+          cost: 0,
+          prompt
+        };
+      }
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between attempts
+    }
+
+    throw new Error('Failed to generate image after all attempts');
     
   } catch (error) {
     console.error('Pollinations generation failed:', error);
@@ -71,7 +126,7 @@ async function generateWithPollinations(prompt) {
 // Image Composition Function
 async function composeImage(generatedImageUrl, backgroundAsset, logoAsset, mascotAsset, idea) {
   try {
-    console.log('Downloading generated image...');
+    console.log('Downloading generated image from:', generatedImageUrl);
     const imageResponse = await axios.get(generatedImageUrl, { 
       responseType: 'arraybuffer', 
       timeout: 30000,
@@ -79,7 +134,20 @@ async function composeImage(generatedImageUrl, backgroundAsset, logoAsset, masco
         'User-Agent': 'TumbleTown-Ad-Generator/1.0'
       }
     });
+    
+    console.log('Image download response status:', imageResponse.status);
+    console.log('Content type:', imageResponse.headers['content-type']);
+    console.log('Content length:', imageResponse.headers['content-length']);
+    
+    if (!imageResponse.data || imageResponse.data.length === 0) {
+      throw new Error('Received empty image data');
+    }
+    
     const generatedImageBuffer = Buffer.from(imageResponse.data);
+    console.log('Image buffer size:', generatedImageBuffer.length);
+    
+    // Verify the image buffer is valid
+    await sharp(generatedImageBuffer).metadata();
 
     console.log('Creating base composition...');
     let composition = sharp(generatedImageBuffer).resize(1080, 1080, { fit: 'cover' });
@@ -159,14 +227,35 @@ async function composeImage(generatedImageUrl, backgroundAsset, logoAsset, masco
     
     try {
       console.log('Using fallback image save...');
-      const imageResponse = await axios.get(generatedImageUrl, { responseType: 'arraybuffer' });
+      const imageResponse = await axios.get(generatedImageUrl, { 
+        responseType: 'arraybuffer',
+        timeout: 30000,
+        headers: {
+          'User-Agent': 'TumbleTown-Ad-Generator/1.0'
+        }
+      });
+      
+      if (!imageResponse.data || imageResponse.data.length === 0) {
+        throw new Error('Received empty image data in fallback');
+      }
+      
+      console.log('Fallback image response status:', imageResponse.status);
+      console.log('Fallback content type:', imageResponse.headers['content-type']);
+      console.log('Fallback content length:', imageResponse.headers['content-length']);
+      
       const outputPath = `uploads/generated/simple-${Date.now()}.jpg`;
       await fs.mkdir('uploads/generated', { recursive: true });
-      await fs.writeFile(outputPath, imageResponse.data);
+      
+      // Verify and process the image using sharp
+      await sharp(Buffer.from(imageResponse.data))
+        .jpeg({ quality: 90 })
+        .toFile(outputPath);
+      
+      console.log('Fallback image saved successfully to:', outputPath);
       return outputPath;
     } catch (fallbackError) {
       console.error('Fallback image save failed:', fallbackError);
-      return generatedImageUrl;
+      throw new Error('Could not save or process image: ' + fallbackError.message);
     }
   }
 }
