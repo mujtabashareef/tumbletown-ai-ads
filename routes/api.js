@@ -118,9 +118,12 @@ router.get('/posts', async (req, res) => {
 // Manual ad generation
 router.post('/generate-ad', async (req, res) => {
   try {
+    console.log('Starting manual ad generation...');
     const post = await generateDailyAd();
+    console.log('Generated post:', post);
     res.json({ success: true, post });
   } catch (error) {
+    console.error('Error in generate-ad endpoint:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
