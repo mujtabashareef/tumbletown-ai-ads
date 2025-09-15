@@ -15,7 +15,8 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static('uploads'));
+app.use(express.static('public'));  // Serve files from public directory
+app.use(express.static('uploads')); // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
 
 // Routes
